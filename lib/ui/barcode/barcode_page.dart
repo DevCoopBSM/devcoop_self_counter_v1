@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:counter/controller/save_user_info.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 
 class BarcodePage extends StatefulWidget {
   const BarcodePage({Key? key}) : super(key: key);
@@ -21,6 +23,8 @@ class _BarcodePageState extends State<BarcodePage> {
   final TextEditingController _pinController = TextEditingController();
   final FocusNode _barcodeFocus = FocusNode();
   TextEditingController? _activeController;
+  final secureStorage = FlutterSecureStorage();
+
 
   @override
   Widget build(BuildContext context) {
@@ -294,15 +298,13 @@ class _BarcodePageState extends State<BarcodePage> {
 
         Map<String, dynamic> responseBody =
         jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-
         String codeNumber = responseBody['data']['user']['codeNumber'];
-        String pin = responseBody['data']['user']['pin'];
+        String? token = responseBody['data']['token'];
         int point = responseBody['data']['user']['point'];
         String studentName = responseBody['data']['user']['studentName'];
-        int userId = responseBody['data']['user']['studentNumber'];
-
-        saveUserData(codeNumber, pin, point, studentName, userId);
-        print("저장성공");
+        await secureStorage.write(key: 'token', value: token);
+        saveUserData(codeNumber, point, studentName);
+        print("로그인 후 사용자 정보 저장성공");
 
         Get.toNamed('/check');
       }

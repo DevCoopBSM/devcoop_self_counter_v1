@@ -39,12 +39,10 @@ class _CheckStudentState extends State<CheckStudent> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
 
       String? savedCodeNumber = prefs.getString('codeNumber');
-      String? savedPin = prefs.getString('pin');
       savedPoint = prefs.getInt('point') ?? 0;
       savedStudentName = prefs.getString('studentName') ?? '';
-      savedCodeNumber = prefs.getString('codeNumber') ?? '';
 
-      if (savedCodeNumber != null && savedPin != null) {
+      if (savedCodeNumber != null ) {
         print("Getting UserInfo");
         print('Data loaded from SharedPreferences');
         setState(() {}); // Trigger a rebuild to update the UI

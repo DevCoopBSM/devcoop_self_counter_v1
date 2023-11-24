@@ -304,6 +304,7 @@ class _BarcodePageState extends State<BarcodePage> {
         String studentName = responseBody['data']['user']['studentName'];
         await secureStorage.write(key: 'token', value: token);
         saveUserData(codeNumber, point, studentName);
+        print(token);
         print("로그인 후 사용자 정보 저장성공");
 
         Get.toNamed('/check');

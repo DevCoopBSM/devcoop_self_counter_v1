@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../Dto/item_response_dto.dart';
 import '../_constant/component/button.dart';
 import 'widgets/payments_item.dart';
 import 'widgets/payments_popup.dart';
+
+final secureStorage = FlutterSecureStorage();
 
 class PaymentsPage extends StatefulWidget {
   PaymentsPage({Key? key}) : super(key: key);
@@ -24,7 +26,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
   String? savedCodeNumber; // 수정: null 허용
   String? savedUserId; // 수정: null 허용
   List<ItemResponseDto> itemResponses = [];
-
   TextEditingController barcodeController = TextEditingController();
   FocusNode barcodeFocusNode = FocusNode();
 
@@ -246,6 +247,51 @@ class _PaymentsPageState extends State<PaymentsPage> {
     }
   }
 
+  Future<void> sendPayments(List<ItemResponseDto> items) async {
+    try {
+      String? token = await secureStorage.read(key: 'token');
+      print(token);
+      if (token != null) {
+        final currentTimeUtc = DateTime.now().toUtc(); // 현재 시각을 UTC로 얻음
+        final formattedTimeUtc = currentTimeUtc.toIso8601String(); // UTC 시각을 ISO 8601 형식으로 변환
+
+        const apiUrl = 'http://localhost:8080/kiosk/payments';
+
+        final response = await http.post(
+          Uri.parse(apiUrl),
+          headers: <String, String>{
+            'Content-Type': 'application/json; charset=UTF-8',
+            'Authorization': 'Bearer $token', // 저장된 토큰을 요청 헤더에 추가
+          },
+          body: jsonEncode(<String, dynamic>{
+            'items': items.map((item) {
+              return {
+                'itemName': item.itemName,
+                'saleQty': item.quantity,
+                'dcmSaleAmt': item.itemPrice,
+              };
+            }).toList(),
+            'requestTimeUtc': formattedTimeUtc, // UTC 시각을 요청 시각으로 추가
+          }),
+        );
+
+        print("-----------------");
+        print(response.body);
+
+        if (response.statusCode == 200) {
+          print("응답상태 : ${response.statusCode}");
+          print('구매요청을 성공적으로 보냈습니다.');
+        } else {
+          print("응답상태 : ${response.statusCode}");
+          print('구매요청 실패 실패');
+        }
+      }
+    } catch (e) {
+      print('구매요청하는 동안 오류가 발생했습니다: $e');
+    }
+  }
+
+
   @override
   void dispose() {
     barcodeController.dispose();
@@ -386,6 +432,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     mainTextButton(
                       text: '계산하기',
                       onTap: () {
+                        sendPayments(itemResponses);
                         sendRequestsForItems(itemResponses);
                         savePayLog(totalPrice);
                         showPaymentsPopup(context, totalPrice);

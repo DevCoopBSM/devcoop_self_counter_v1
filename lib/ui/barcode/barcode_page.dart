@@ -10,6 +10,9 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:async';
+import 'package:counter/utils/logout_utils.dart'; // 로그아웃 관련 코드를 import
+
+
 
 class BarcodePage extends StatefulWidget {
   const BarcodePage({Key? key}) : super(key: key);
@@ -22,7 +25,7 @@ class _BarcodePageState extends State<BarcodePage> {
 
   final List<int?> pinNumbers = List.filled(6, null); // 초기에 null로 채워진 길이 6의 배열
   int currentDigitIndex = 0; // 현재 입력 중인 자릿수 인덱스
-
+// LogoutUtils 인스턴스 생성
   final TextEditingController _codeNumberController = TextEditingController();
   final TextEditingController _pinController = TextEditingController();
   final FocusNode _barcodeFocus = FocusNode();
@@ -31,6 +34,7 @@ class _BarcodePageState extends State<BarcodePage> {
 
   @override
   Widget build(BuildContext context) {
+    final LogoutUtils logoutUtils = LogoutUtils(context);
     FocusScope.of(context).requestFocus(_barcodeFocus);
     return Scaffold(
       body: Container(
@@ -78,7 +82,10 @@ class _BarcodePageState extends State<BarcodePage> {
                                         : const Color(0xFFD9D9D9),
                                   ),
                                   child: Text(
-                                    '${j + 1 + i * 3 == 10 ? 'Clear' : (j + 1 + i * 3 == 11 ? '0' : (j + 1 + i * 3 == 12 ? 'Del' : j + 1 + i * 3))}',
+                                    '${j + 1 + i * 3 == 10 ? 'Clear' : (j + 1 +
+                                        i * 3 == 11 ? '0' : (j + 1 + i * 3 == 12
+                                        ? 'Del'
+                                        : j + 1 + i * 3))}',
                                     style: const TextStyle(
                                       fontSize: 24,
                                       color: DevCoopColors.black,
@@ -189,8 +196,10 @@ class _BarcodePageState extends State<BarcodePage> {
                                 children: [
                                   for (int i = 0; i < 6; i++) ...[
                                     Container(
-                                      width: 40, // 각 핀 번호의 크기를 조정
-                                      height: 40, // 각 핀 번호의 크기를 조정
+                                      width: 40,
+                                      // 각 핀 번호의 크기를 조정
+                                      height: 40,
+                                      // 각 핀 번호의 크기를 조정
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
                                         border: Border.all(
@@ -240,7 +249,7 @@ class _BarcodePageState extends State<BarcodePage> {
                 mainTextButton(
                   text: '처음으로',
                   onTap: () {
-                    Get.toNamed('/home');
+                    logoutUtils.logout();
                   },
                 ),
               ],
@@ -250,6 +259,7 @@ class _BarcodePageState extends State<BarcodePage> {
       ),
     );
   }
+
   void onNumberButtonPressed(int number) {
     if (number == 10) {
       // Clear button
@@ -274,11 +284,13 @@ class _BarcodePageState extends State<BarcodePage> {
     }
     setState(() {}); // 화면 갱신
   }
+
   void _setActiveController(TextEditingController controller) {
     setState(() {
       _activeController = controller;
     });
   }
+
   void _showErrorDialog(String errorMessage) {
     print("Dialog Start");
     showDialog(
@@ -306,7 +318,8 @@ class _BarcodePageState extends State<BarcodePage> {
                 Navigator.of(context).pop(); // 다이얼로그 닫기
               },
               style: ButtonStyle(
-                backgroundColor: MaterialStateProperty.all(Colors.amber), // 배경 색상을 노란색으로 설정
+                backgroundColor: MaterialStateProperty.all(Colors.amber),
+                // 배경 색상을 노란색으로 설정
                 minimumSize: MaterialStateProperty.all(const Size(120, 60)),
               ),
               child: Text(
@@ -324,10 +337,9 @@ class _BarcodePageState extends State<BarcodePage> {
   }
 
 
-
   Future<void> _login(BuildContext context) async {
     String codeNumber = _codeNumberController.text;
-    String pin = _pinController.text;
+    String pin = pinNumbers.join(''); // 리스트의 요소를 문자열로 결합
 
     Map<String, String> requestBody = {'codeNumber': codeNumber, 'pin': pin};
     String jsonData = json.encode(requestBody);
@@ -354,19 +366,17 @@ class _BarcodePageState extends State<BarcodePage> {
         String prettyPrinted = encoder.convert(responseBody);
         print(prettyPrinted);
 
-
         String? token = responseBody['token'];
         int point = responseBody['point'];
         String studentName = responseBody['studentName'];
         await secureStorage.write(key: 'token', value: token);
         saveUserData(codeNumber, point, studentName);
 
-        print("로그인 후 사용자 정보 저장성공");
+        print("로그인 후 사용자 정보 저장 성공");
 
         Get.toNamed('/check');
       } else if (response.statusCode == 400 || response.statusCode == 401) {
         // 로그인 실패 시 에러 메시지를 표시
-
         _showErrorDialog("학생증 혹은 핀번호를 다시 확인해주세요");
       }
     } catch (e) {

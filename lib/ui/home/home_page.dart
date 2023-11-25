@@ -19,7 +19,7 @@ class MyHome extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.only(top: 600), // 사용자 지정 단위로 마진 설정
                 child: Text(
-                  'touch to start',
+                  'AriPay 셀프계산대 시작하기',
                   style: DevCoopTextStyle.bold_50.copyWith(
                     color: DevCoopColors.black,
                   ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -9,6 +10,8 @@ import '../../Dto/item_response_dto.dart';
 import '../_constant/component/button.dart';
 import 'widgets/payments_item.dart';
 import 'widgets/payments_popup.dart';
+import 'package:counter/utils/logout_utils.dart'; // 로그아웃 관련 코드를 import
+
 
 final secureStorage = FlutterSecureStorage();
 
@@ -58,49 +61,46 @@ class _PaymentsPageState extends State<PaymentsPage> {
       print('Error during loading data: $e');
     }
   }
-
-  // fetchItemData 함수에서 ItemResponseDto 생성자 호출 시 itemId 추가
   Future<void> fetchItemData(String barcode, int quantity) async {
     try {
       const apiUrl = 'http://localhost:8080/kiosk';
-      final response =
-          await http.get(Uri.parse('$apiUrl/itemSelect?barcodes=$barcode'));
+      final response = await http.get(Uri.parse('$apiUrl/itemSelect?barcodes=$barcode'));
 
       print(response.body);
 
       if (response.statusCode == 200) {
         final List<dynamic> itemJsonList =
-            jsonDecode(utf8.decode(response.bodyBytes));
+        jsonDecode(utf8.decode(response.bodyBytes));
         final Map<String, dynamic> responseBody = itemJsonList.first;
         final String itemName = responseBody['name'];
         final dynamic rawItemPrice = responseBody['price'];
-        final String itemPrice =
-            rawItemPrice?.toString() ?? '0'; // 수정: null 체크 및 기본값 설정
+        final int itemPrice = rawItemPrice as int;
 
         setState(() {
           final existingItemIndex = itemResponses.indexWhere(
-            (existingItem) => existingItem.itemId == barcode,
+                (existingItem) => existingItem.itemBarcode == barcode,
           );
 
-          print(existingItemIndex);
-
+          print(barcode);
           if (existingItemIndex != -1) {
-            // 이미 추가된 아이템이 있다면 갯수를 증가시키고 총 가격 업데이트
+            // 이미 추가된 아이템이 있다면 갯수와 총 가격 업데이트
             final existingItem = itemResponses[existingItemIndex];
-            existingItem.quantity += 1;
-            totalPrice += existingItem.itemPrice;
-            itemResponses[existingItemIndex] = existingItem; // 업데이트된 아이템 다시 저장
+            existingItem.quantity += quantity; // 수량 증가
+            existingItem.itemTotalPrice += itemPrice;
           } else {
             // 새로운 아이템 추가
             final item = ItemResponseDto(
               itemName: itemName ?? '',
-              itemPrice: int.parse(itemPrice),
-              itemId: barcode,
-              quantity: 1, // 새로운 아이템의 기본 갯수는 1로 설정
+              itemPrice: itemPrice, // 상품 가격에 수량을 곱해서 설정
+              itemBarcode: barcode,
+              quantity: quantity, // 수량 설정
+              itemTotalPrice: itemPrice,
             );
             itemResponses.add(item);
-            totalPrice += int.parse(itemPrice);
           }
+          // 총 가격 계산
+          totalPrice += itemPrice;
+
         });
       }
     } catch (e) {
@@ -108,8 +108,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
     }
   }
 
+
   void showPaymentsPopup(BuildContext context, int totalPrice) {
-    deductPoints();
+    // deductPoints();
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -133,120 +134,127 @@ class _PaymentsPageState extends State<PaymentsPage> {
       barcodeController.clear();
     }
   }
+  //
+  // Future<void> savePayLog(int totalPrice) async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //
+  //   String? savedCodeNumber = prefs.getString('codeNumber');
+  //   String? savedStudentName = prefs.getString('studentName');
+  //
+  //   if (savedCodeNumber != null && savedStudentName != null) {
+  //     print("Getting UserInfo");
+  //     print('Data loaded from SharedPreferences');
+  //   }
+  //
+  //   try {
+  //     const apiUrl = 'http://localhost:8080/kiosk/save/paylog';
+  //     final response = await http.post(
+  //       Uri.parse(apiUrl),
+  //       headers: <String, String>{
+  //         'Content-Type': 'application/json; charset=UTF-8',
+  //       },
+  //       body: jsonEncode(<dynamic, dynamic>{
+  //         "codeNumber": savedCodeNumber,
+  //         "type": 0,
+  //         "innerPoint": totalPrice,
+  //         "chargerId": "kiosk",
+  //         "verifyKey": "test",
+  //         "studentName": savedStudentName,
+  //       }),
+  //     );
+  //
+  //     print(response.body);
+  //
+  //     if (response.statusCode == 200) {
+  //       // 요청이 성공적으로 처리되었을 때의 동작 추가
+  //       print('Points deducted successfully');
+  //     } else {
+  //       // 요청이 실패했을 때의 동작 추가
+  //       print('Failed to deduct points');
+  //     }
+  //   } catch (e) {
+  //     print(e);
+  //   }
+  // }
 
-  Future<void> savePayLog(int totalPrice) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+  // Future<void> deductPoints() async {
+  //   try {
+  //     const apiUrl = 'http://localhost:8080/kiosk';
+  //
+  //     Map<String, dynamic> requestBody = {
+  //       'codeNumber': savedCodeNumber,
+  //       'totalPrice': totalPrice
+  //     };
+  //     String jsonData = json.encode(requestBody);
+  //
+  //     print(jsonData);
+  //
+  //     final response = await http.put(
+  //       Uri.parse('$apiUrl/pay'),
+  //       headers: {
+  //         'Content-Type': 'application/json; charset=UTF-8',
+  //       },
+  //       body: jsonData,
+  //     );
+  //
+  //     print(response);
+  //
+  //     if (response.statusCode == 200) {
+  //       // 요청이 성공적으로 처리되었을 때의 동작 추가
+  //       print('Points deducted successfully');
+  //     } else {
+  //       // 요청이 실패했을 때의 동작 추가
+  //       print('Failed to deduct points');
+  //     }
+  //   } catch (e) {
+  //     // 예외 처리
+  //     print('Error occurred while deducting points: $e');
+  //   }
+  // }
+  //
+  // Future<void> sendRequestsForItems(List<ItemResponseDto> items) async {
+  //   for (ItemResponseDto item in items) {
+  //     try {
+  //       if (savedUserId != null) {
+  //         // Check if savedUserId is not null
+  //         const apiUrl = 'http://localhost:8080/kiosk/save/receipt';
+  //         final response = await http.post(
+  //           Uri.parse(apiUrl),
+  //           headers: <String, String>{
+  //             'Content-Type': 'application/json; charset=UTF-8',
+  //           },
+  //           body: jsonEncode(<String, dynamic>{
+  //             'itemName': item.itemName,
+  //             'saleQty': item.quantity,
+  //             'dcmSaleAmt': item.itemPrice,
+  //             'userId': savedUserId,
+  //           }),
+  //         );
+  //
+  //         print("-----------------");
+  //         print(response.body);
+  //
+  //         if (response.statusCode == 200) {
+  //           print("응답상태 : ${response.statusCode}");
+  //           print('${item.itemName}에 대한 영수증이 성공적으로 저장되었습니다.');
+  //         } else {
+  //           print("응답상태 : ${response.statusCode}");
+  //           print('${item.itemName}에 대한 영수증 저장 실패');
+  //         }
+  //       }
+  //     } catch (e) {
+  //       print('영수증을 저장하는 동안 오류가 발생했습니다: $e');
+  //     }
+  //   }
+  // }
+  void resetItems() {
+    setState(() {
+      itemResponses.clear(); // 아이템 리스트 초기화
+      totalPrice = 0; // 총 가격 초기화
+    });
 
-    String? savedCodeNumber = prefs.getString('codeNumber');
-    String? savedStudentName = prefs.getString('studentName');
 
-    if (savedCodeNumber != null && savedStudentName != null) {
-      print("Getting UserInfo");
-      print('Data loaded from SharedPreferences');
-    }
-
-    try {
-      const apiUrl = 'http://localhost:8080/kiosk/save/paylog';
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(<dynamic, dynamic>{
-          "codeNumber": savedCodeNumber,
-          "type": 0,
-          "innerPoint": totalPrice,
-          "chargerId": "kiosk",
-          "verifyKey": "test",
-          "studentName": savedStudentName,
-        }),
-      );
-
-      print(response.body);
-
-      if (response.statusCode == 200) {
-        // 요청이 성공적으로 처리되었을 때의 동작 추가
-        print('Points deducted successfully');
-      } else {
-        // 요청이 실패했을 때의 동작 추가
-        print('Failed to deduct points');
-      }
-    } catch (e) {
-      print(e);
-    }
   }
-
-  Future<void> deductPoints() async {
-    try {
-      const apiUrl = 'http://localhost:8080/kiosk';
-
-      Map<String, dynamic> requestBody = {
-        'codeNumber': savedCodeNumber,
-        'totalPrice': totalPrice
-      };
-      String jsonData = json.encode(requestBody);
-
-      print(jsonData);
-
-      final response = await http.put(
-        Uri.parse('$apiUrl/pay'),
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: jsonData,
-      );
-
-      print(response);
-
-      if (response.statusCode == 200) {
-        // 요청이 성공적으로 처리되었을 때의 동작 추가
-        print('Points deducted successfully');
-      } else {
-        // 요청이 실패했을 때의 동작 추가
-        print('Failed to deduct points');
-      }
-    } catch (e) {
-      // 예외 처리
-      print('Error occurred while deducting points: $e');
-    }
-  }
-
-  Future<void> sendRequestsForItems(List<ItemResponseDto> items) async {
-    for (ItemResponseDto item in items) {
-      try {
-        if (savedUserId != null) {
-          // Check if savedUserId is not null
-          const apiUrl = 'http://localhost:8080/kiosk/save/receipt';
-          final response = await http.post(
-            Uri.parse(apiUrl),
-            headers: <String, String>{
-              'Content-Type': 'application/json; charset=UTF-8',
-            },
-            body: jsonEncode(<String, dynamic>{
-              'itemName': item.itemName,
-              'saleQty': item.quantity,
-              'dcmSaleAmt': item.itemPrice,
-              'userId': savedUserId,
-            }),
-          );
-
-          print("-----------------");
-          print(response.body);
-
-          if (response.statusCode == 200) {
-            print("응답상태 : ${response.statusCode}");
-            print('${item.itemName}에 대한 영수증이 성공적으로 저장되었습니다.');
-          } else {
-            print("응답상태 : ${response.statusCode}");
-            print('${item.itemName}에 대한 영수증 저장 실패');
-          }
-        }
-      } catch (e) {
-        print('영수증을 저장하는 동안 오류가 발생했습니다: $e');
-      }
-    }
-  }
-
   Future<void> sendPayments(List<ItemResponseDto> items) async {
     try {
       String? token = await secureStorage.read(key: 'token');
@@ -269,6 +277,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 'itemName': item.itemName,
                 'saleQty': item.quantity,
                 'dcmSaleAmt': item.itemPrice,
+                'itemBarcode': item.itemBarcode,
               };
             }).toList(),
             'requestTimeUtc': formattedTimeUtc, // UTC 시각을 요청 시각으로 추가
@@ -280,10 +289,10 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
         if (response.statusCode == 200) {
           print("응답상태 : ${response.statusCode}");
-          print('구매요청을 성공적으로 보냈습니다.');
+          print('구매성공.');
         } else {
           print("응답상태 : ${response.statusCode}");
-          print('구매요청 실패 실패');
+          print('구매실패');
         }
       }
     } catch (e) {
@@ -299,8 +308,11 @@ class _PaymentsPageState extends State<PaymentsPage> {
     super.dispose();
   }
 
+
+
   @override
   Widget build(BuildContext context) {
+    final LogoutUtils logoutUtils = LogoutUtils(context);
     final screenWidth = MediaQuery.of(context).size.width;
     FocusScope.of(context).requestFocus(barcodeFocusNode);
     return Scaffold(
@@ -369,7 +381,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                       paymentsItem(
                         left: '상품 이름',
                         center: '수량',
-                        rightText: '상품 가격',
+                        rightText: '총 가격',
                         contentsTitle: true,
                       ),
                       const SizedBox(
@@ -386,7 +398,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                                   left: itemResponses[i].itemName ?? '',
                                   center: '${itemResponses[i].quantity}',
                                   rightText:
-                                      itemResponses[i].itemPrice?.toString() ??
+                                      itemResponses[i].itemTotalPrice?.toString() ??
                                           '0',
                                   totalText: false,
                                 ),
@@ -429,14 +441,29 @@ class _PaymentsPageState extends State<PaymentsPage> {
                         rightText: totalPrice.toString(), // 수정: 값을 String으로 변환
                       ),
                     ),
-                    mainTextButton(
-                      text: '계산하기',
-                      onTap: () {
-                        sendPayments(itemResponses);
-                        sendRequestsForItems(itemResponses);
-                        savePayLog(totalPrice);
-                        showPaymentsPopup(context, totalPrice);
-                      },
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        mainTextButton(
+                          text: '처음으로',
+                          onTap: () {
+                            logoutUtils.logout();
+                          },
+                        ),
+                        mainTextButton(
+                          text: '초기화',
+                          onTap: () {
+                            resetItems();
+                          },
+                        ),
+                        mainTextButton(
+                          text: '계산하기',
+                          onTap: () {
+                            sendPayments(itemResponses);
+                            showPaymentsPopup(context, totalPrice);
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
